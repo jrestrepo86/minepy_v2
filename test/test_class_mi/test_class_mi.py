@@ -9,7 +9,7 @@ from minepy.utils.systems import GaussianSamples
 RNG_SEED = 1
 NREA = 60  # number of realizations
 DATA_LENGHT = int(1e4)
-RHO = 0.0
+RHO = 0.9
 
 # Net parameters
 model_paramters = {
