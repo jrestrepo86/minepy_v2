@@ -30,8 +30,19 @@ class Sampler:
             axis=1,
         )
         # Marginal Samples
+        y_perm = self.rng.permutation(y_batch, axis=0)
+        # This ensures no joint sample is recycled as its own fake marginal.
+        # possible if batch size is small
+        for i in range(len(y_perm)):
+            if np.array_equal(
+                y_perm[i], y_batch[i]
+            ):  # y remained paired with its original x
+                # swap with another random index j
+                j = (i + 1) % len(y_perm)
+                y_perm[i], y_perm[j] = y_perm[j].copy(), y_perm[i].copy()
+
         marginal_samples = np.concatenate(
-            (x_batch, self.rng.permutation(y_batch, axis=0)),
+            (x_batch, y_perm),
             axis=1,
         )
 

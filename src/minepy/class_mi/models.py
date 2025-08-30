@@ -1,16 +1,3 @@
-"""
-Classifier based mutual information
-
-@inproceedings{
-  title={CCMI: Classifier based conditional mutual information estimation},
-  author={Mukherjee, Sudipto and Asnani, Himanshu and Kannan, Sreeram},
-  booktitle={Uncertainty in artificial intelligence},
-  pages={1083--1093},
-  year={2020},
-  organization={PMLR}
-}
-"""
-
 import torch
 import torch.nn as nn
 

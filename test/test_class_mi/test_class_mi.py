@@ -9,7 +9,7 @@ from minepy.utils.systems import GaussianSamples
 RNG_SEED = 1
 NREA = 60  # number of realizations
 DATA_LENGHT = int(1e4)
-RHO = 0.5
+RHO = 0.0
 
 # Net parameters
 model_paramters = {
@@ -22,7 +22,7 @@ training_parameters = {
     "batch_size": 256,
     "num_epochs": 30000,
     "lr": 5e-3,
-    "weight_decay": 5e-5,
+    "weight_decay": 5e-4,
     "test_size": 0.3,
     "stop_patience": 100,
     "stop_min_delta": 1e-5,

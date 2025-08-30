@@ -1,3 +1,17 @@
+"""
+Classifier based mutual information
+
+@inproceedings{
+  title={CCMI: Classifier based conditional mutual information estimation},
+  author={Mukherjee, Sudipto and Asnani, Himanshu and Kannan, Sreeram},
+  booktitle={Uncertainty in artificial intelligence},
+  pages={1083--1093},
+  year={2020},
+  organization={PMLR}
+}
+"""
+
+import copy
 import math
 
 import numpy as np
@@ -45,6 +59,7 @@ class ClassMI:
         self.metrics = None
         self.trained = False
         self.log_metrics = False
+        self.best_state = None
 
     def _mi(self, w: torch.Tensor, labels: torch.Tensor):
         with torch.no_grad():
@@ -118,6 +133,7 @@ class ClassMI:
             self.y[test_idx, :],
         )
 
+        best_state, best_loss = None, float("inf")
         metrics = []
         for epoch in range(num_epochs):
             # training
@@ -156,9 +172,16 @@ class ClassMI:
                         }
                     )
 
+            # After each validation step:
+            if smoothed_loss < best_loss:
+                best_loss = smoothed_loss
+                best_state = copy.deepcopy(self.model.state_dict())
+
             # EarlyStopping
             early_stopping(smoothed_loss)
             if early_stopping.early_stop:
+                if best_state is not None:
+                    self.model.load_state_dict(best_state)
                 break
 
         self.trained = True
@@ -166,7 +189,7 @@ class ClassMI:
         if log_metrics:
             self.metrics = pd.DataFrame(metrics)
 
-    def get_mi(self, T=30):
+    def get_mi(self, T=15):
         if not self.trained:
             raise ValueError("Did you call .train()?")
 

@@ -51,7 +51,12 @@ def get_activation_fn(afn: str = "relu"):
 
 
 class EarlyStopping:
-    def __init__(self, patience: int = 5, delta: float = 0.0, warmup_steps: int = 100):
+    def __init__(
+        self,
+        patience: int = 5,
+        delta: float = 0.0,
+        warmup_steps: int = 100,
+    ):
         self.patience = patience
         self.delta = abs(delta)
         self.warmup_steps = warmup_steps
