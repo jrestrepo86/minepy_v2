@@ -11,11 +11,10 @@ Classifier based mutual information
 }
 """
 
-from typing import Tuple
-
 import torch
 import torch.nn as nn
-from src.utils.utils import get_activation_fn
+
+from minepy.utils.utils import get_activation_fn
 
 
 class Classifier(nn.Module):
@@ -50,7 +49,7 @@ class Classifier(nn.Module):
 
     def forward(
         self, x, labels
-    ) -> Tuple[torch.Tensor, torch.Tensor]:  # x: (batch, input_dim)
+    ) -> tuple[torch.Tensor, torch.Tensor]:  # x: (batch, input_dim)
         w = self.network(x).view(-1)
         w = torch.clamp(w, min=self.clip_val, max=1 - self.clip_val)
         return w, self.bce_loss(w, labels)

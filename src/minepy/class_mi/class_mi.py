@@ -1,19 +1,17 @@
 import math
-from typing import Optional, Tuple
 
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import schedulefree
 import torch
-import torch.nn as nn
 from plotly.subplots import make_subplots
 from sklearn.model_selection import train_test_split
 
 from minepy.utils.utils import (
     EarlyStopping,
     ExpMovingAverageSmooth,
-    get_activation_fn,
+    to_col_vector,
 )
 
 from .batch_sampler import Sampler
@@ -28,17 +26,20 @@ class ClassMI:
         hidden_layers: list[int] = [64, 64],
         afn: str = "elu",
         clip_val: float = 1e-6,
-        device: Optional[str] = None,
+        device: str | None = None,
     ):
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.x = X
-        self.y = Y
+        self.x = to_col_vector(X)
+        self.y = to_col_vector(Y)
 
-        input_dim = self.x[1] + self.y.shape[1]
+        input_dim = self.x.shape[1] + self.y.shape[1]
 
         self.model = Classifier(
-            input_dim=input_dim, hidden_layers=hidden_layers, afn=afn, clip_val=clip_val
+            input_dim=input_dim,
+            hidden_layers=hidden_layers,
+            afn=afn,
+            clip_val=clip_val,
         ).to(self.device)
 
         self.metrics = None
@@ -58,7 +59,9 @@ class ClassMI:
                 - torch.logsumexp(log_gamma_prod, dim=0)
                 + math.log(log_gamma_prod.shape[0])
             )
-            cmi_nwj = 1 + log_gamma_joint.mean() - torch.exp(log_gamma_prod).mean()
+            cmi_nwj = (
+                1 + log_gamma_joint.mean() - torch.exp(log_gamma_prod).mean()
+            )
             cmi_ldr = log_gamma_joint.mean()
         return cmi_dv, cmi_nwj, cmi_ldr
 
@@ -72,7 +75,7 @@ class ClassMI:
         stop_patience: int = 100,
         stop_min_delta: float = 1e-4,
         stop_warmup_steps: int = 1000,
-        log_metrics=False,
+        log_metrics=True,
     ):
         self.log_metrics = log_metrics
 
@@ -92,14 +95,18 @@ class ClassMI:
 
         # setup early stopping
         early_stopping = EarlyStopping(
-            patience=stop_patience, delta=stop_min_delta, warmup_steps=stop_warmup_steps
+            patience=stop_patience,
+            delta=stop_min_delta,
+            warmup_steps=stop_warmup_steps,
         )
 
         # Exponential smooth
         smooth = ExpMovingAverageSmooth()
 
         n = self.x.shape[0]
-        train_idx, test_idx = train_test_split(list(range(n)), test_size=test_size)
+        train_idx, test_idx = train_test_split(
+            list(range(n)), test_size=test_size
+        )
 
         training_sampler = Sampler(
             self.x[train_idx, :],
@@ -189,7 +196,9 @@ class ClassMI:
         if self.metrics is None:
             raise ValueError("No metrics to plot. Did you call .train()?")
         if self.log_metrics is False:
-            print("No mi metrics recorded. Set log_metrics = True and call .train()?")
+            print(
+                "No mi metrics recorded. Set log_metrics = True and call .train()?"
+            )
 
         epochs = self.metrics["epoch"].values
         loss = self.metrics["loss"].values
@@ -219,7 +228,10 @@ class ClassMI:
         )
         fig.add_trace(
             go.Scatter(
-                x=epochs, y=smoothed_loss, mode="lines+markers", name="Smoothed Loss"
+                x=epochs,
+                y=smoothed_loss,
+                mode="lines+markers",
+                name="Smoothed Loss",
             ),
             row=1,
             col=1,
@@ -227,13 +239,19 @@ class ClassMI:
 
         # --- Second row: CMI metrics ---
         fig.add_trace(
-            go.Scatter(x=epochs, y=dv, mode="lines+markers", name="DV"), row=2, col=1
+            go.Scatter(x=epochs, y=dv, mode="lines+markers", name="DV"),
+            row=2,
+            col=1,
         )
         fig.add_trace(
-            go.Scatter(x=epochs, y=nwj, mode="lines+markers", name="NWJ"), row=2, col=1
+            go.Scatter(x=epochs, y=nwj, mode="lines+markers", name="NWJ"),
+            row=2,
+            col=1,
         )
         fig.add_trace(
-            go.Scatter(x=epochs, y=ldr, mode="lines+markers", name="LDR"), row=2, col=1
+            go.Scatter(x=epochs, y=ldr, mode="lines+markers", name="LDR"),
+            row=2,
+            col=1,
         )
 
         # --- Update layout ---
