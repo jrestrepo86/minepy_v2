@@ -1,0 +1,9 @@
+name: minepy-env
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.12.7
+  - pip
+  - pip:
+      - -e . # Install the current directory in editable mode

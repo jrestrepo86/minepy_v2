@@ -1,0 +1,70 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+
+requires = [ "setuptools>=68", "wheel" ]
+
+[project]
+name = "your-package-name"
+version = "0.1.0"
+description = "Mutual information neural estimation"
+readme = "README.md"
+keywords = [ "Mutual-Information", "Neural-Networks" ]
+license = { text = "MIT" }
+authors = [ { name = "Your Name", email = "you@example.com" } ]
+requires-python = ">=3.9"
+classifiers = [
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+
+# Everything your package needs at runtime — pip-only
+dependencies = [
+  "numpy",
+  "pandas",
+  "pillow",
+  "plotly",
+  "psutil",
+  "ray[default]",
+  "schedulefree",
+  "scikit-learn",
+  "scipy",
+  "torch>=2.3",
+  "tqdm",
+]
+
+# Local dev/test extras (used by environment.yml)
+optional-dependencies.dev = [
+  "black",
+  "ipykernel",
+  "mypy",
+  "pytest",
+  "pytest-cov",
+  "ruff",
+]
+urls.Repository = 'https://github.com/jrestrepo86/minepy_v2.git'
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = [ "src" ]
+exclude = [ "tests", "docs" ]
+
+[tool.black]
+target-version = [ "py312" ]
+line-length = 100
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-select = [ "E", "F", "I", "UP" ]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q"
+testpaths = [ "tests" ]
