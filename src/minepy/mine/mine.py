@@ -30,8 +30,7 @@ class Mine:
         X,
         Y,
         hidden_layers: list[int] = [64, 64],
-        afn: str = "elu",
-        clip_val: float = 1e-6,
+        afn: str = "relu",
         loss_type: str = "mine",
         mine_alpha: float = 0.01,
         remine_reg_weight: float = 0.1,
@@ -49,13 +48,13 @@ class Mine:
             input_dim=input_dim,
             hidden_layers=hidden_layers,
             afn=afn,
-            clip_val=clip_val,
             loss_type=loss_type,
             mine_alpha=mine_alpha,
             remine_reg_weight=remine_reg_weight,
             remine_target_val=remine_target_val,
         ).to(self.device)
 
+        self.loss_type = loss_type
         self.metrics = None
         self.trained = False
         self.log_metrics = False
@@ -164,7 +163,7 @@ class Mine:
         if log_metrics:
             self.metrics = pd.DataFrame(metrics)
 
-    def get_mi(self, T=15):
+    def get_mi(self):
         if not self.trained:
             raise ValueError("Did you call .train()?")
 
@@ -172,15 +171,74 @@ class Mine:
             self.x,
             self.y,
         )
-        mi = []
-        for _ in range(T):
-            joint_samples, marginal_samples = sampler.sample(self.x.shape[0] // T)
-            joint_samples = joint_samples.to(self.device)
-            marginal_samples = marginal_samples.to(self.device)
-            self.model.eval()
-            self.optimizer.eval()
-            with torch.no_grad():
-                mi_cmi, _ = self.model(joint_samples, marginal_samples)
-                mi.append(mi_cmi.item())
-        mi = np.mean(mi)
-        return mi
+        joint_samples, marginal_samples = sampler.sample(self.x.shape[0])
+        joint_samples = joint_samples.to(self.device)
+        marginal_samples = marginal_samples.to(self.device)
+        self.model.eval()
+        self.optimizer.eval()
+        with torch.no_grad():
+            mi, _ = self.model(joint_samples, marginal_samples)
+        return mi.item()
+
+    def plot_metrics(self, text="", show=True):
+        if self.metrics is None:
+            raise ValueError("No metrics to plot. Did you call .train()?")
+        if self.log_metrics is False:
+            print("No mi metrics recorded. Set log_metrics = True and call .train()?")
+
+        epochs = self.metrics["epoch"].values
+        loss = self.metrics["loss"].values
+        smoothed_loss = self.metrics["smoothed_loss"].values
+        if self.log_metrics:
+            mi = self.metrics["mi"].values
+        else:
+            mi = np.zeros(len(epochs))
+
+        # --- Create figure with 2 rows and 1 column ---
+        fig = make_subplots(
+            rows=2,
+            cols=1,
+            shared_xaxes=True,
+            subplot_titles=("Epochs vs Loss", "Epochs vs MI Estimates"),
+        )
+
+        # --- First row: Loss ---
+        fig.add_trace(
+            go.Scatter(x=epochs, y=loss, mode="lines+markers", name="Loss"),
+            row=1,
+            col=1,
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=epochs,
+                y=smoothed_loss,
+                mode="lines+markers",
+                name="Smoothed Loss",
+            ),
+            row=1,
+            col=1,
+        )
+
+        # --- Second row: MI metrics ---
+        fig.add_trace(
+            go.Scatter(
+                x=epochs, y=mi, mode="lines+markers", name=f"{self.loss_type.upper()}"
+            ),
+            row=2,
+            col=1,
+        )
+
+        # --- Update layout ---
+        fig.update_layout(
+            title_text="MINE |Training Metrics" + " " + text,
+            template="plotly_white",
+        )
+
+        # Axis labels
+        fig.update_xaxes(title_text="Epoch", row=2, col=1)
+        fig.update_yaxes(title_text="Loss", row=1, col=1)
+        fig.update_yaxes(title_text="MI", row=2, col=1)
+
+        if show:
+            fig.show()
+        return fig

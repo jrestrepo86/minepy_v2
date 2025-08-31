@@ -15,36 +15,24 @@ class Sampler:
         self.n = self.x.shape[0]
 
     def sample(self, batch_size: int) -> tuple[torch.Tensor, torch.Tensor]:
-        idx = self.rng.permutation(self.n)[:batch_size]
-        x_batch = self.x[idx, :]
-        y_batch = self.y[idx, :]
-
         # Joint Samples
+        idx = self.rng.permutation(self.n)[:batch_size]
         joint_samples = np.concatenate(
             (
-                x_batch,
-                y_batch,
+                self.x[idx, :],
+                self.y[idx, :],
             ),
             axis=1,
         )
         # Marginal Samples
-        y_perm = self.rng.permutation(y_batch, axis=0)
-        # This ensures no joint sample is recycled as its own fake marginal.
-        # possible if batch size is small
-        for i in range(len(y_perm)):
-            if np.array_equal(
-                y_perm[i], y_batch[i]
-            ):  # y remained paired with its original x
-                # swap with another random index j
-                j = (i + 1) % len(y_perm)
-                y_perm[i], y_perm[j] = y_perm[j].copy(), y_perm[i].copy()
-
+        idx_x = self.rng.permutation(self.n)[:batch_size]
+        idx_y = self.rng.permutation(self.n)[:batch_size]
         marginal_samples = np.concatenate(
-            (x_batch, y_perm),
+            (self.x[idx_x, :], self.y[idx_y, :]),
             axis=1,
         )
 
         return (
-            torch.tensor(joint_samples, dtype=torch.float32, requires_grad=True),
-            torch.tensor(marginal_samples, dtype=torch.float32, requires_grad=True),
+            torch.tensor(joint_samples, dtype=torch.float32, requires_grad=False),
+            torch.tensor(marginal_samples, dtype=torch.float32, requires_grad=False),
         )

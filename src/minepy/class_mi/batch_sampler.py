@@ -48,18 +48,14 @@ class Sampler:
 
         # Merge
         samples = np.concatenate((joint_samples, marginal_samples), axis=0)
-        labels = np.concatenate(
-            (np.ones(batch_size), np.zeros(batch_size)), axis=0
-        )
+        labels = np.concatenate((np.ones(batch_size), np.zeros(batch_size)), axis=0)
 
         # shuffle batch
         shuffle_idx = self.rng.permutation(2 * batch_size)
 
         return (
             torch.tensor(
-                samples[shuffle_idx, :], dtype=torch.float32, requires_grad=True
+                samples[shuffle_idx, :], dtype=torch.float32, requires_grad=False
             ),
-            torch.tensor(
-                labels[shuffle_idx], dtype=torch.float32, requires_grad=False
-            ),
+            torch.tensor(labels[shuffle_idx], dtype=torch.float32, requires_grad=False),
         )

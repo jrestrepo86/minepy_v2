@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import ray
 
-from minepy.class_mi.class_mi import ClassMI
+from minepy.mine.mine import Mine
 from minepy.utils.systems import GaussianSamples
 
 RNG_SEED = 1
@@ -14,8 +14,11 @@ RHO = 0.9
 # Net parameters
 model_paramters = {
     "hidden_layers": [128, 128, 128],
-    "afn": "relu",
-    "clip_val": 1e-6,
+    "afn": "elu",
+    "loss_type": "remine",
+    "mine_alpha": 0.01,
+    "remine_reg_weight": 0.1,
+    "remine_target_val": 0.0,
 }
 # Training
 training_parameters = {
@@ -40,20 +43,18 @@ def get_mi(sim):
     x, y = sim["x"], sim["y"]
 
     # create model
-    classifier_mi = ClassMI(X=x, Y=y, **model_paramters)
+    mine_mi = Mine(X=x, Y=y, **model_paramters)
     # training
-    classifier_mi.train(**training_parameters)
+    mine_mi.train(**training_parameters)
 
     # plot
-    # classifier_mi.plot_metrics(show=True)
+    # mine_mi.plot_metrics(show=True)
 
     # output
-    out = classifier_mi.get_mi()
+    out = mine_mi.get_mi()
 
     return {
-        "mi_dv": out[0],
-        "mi_nwj": out[1],
-        "mi_ldr": out[2],
+        "mi": out,
     }
 
 
@@ -93,9 +94,7 @@ def plot(results, true_value):
     fig = go.Figure()
 
     # Add a box for each metric
-    fig.add_trace(go.Box(y=results["mi_dv"], name="MI_DV"))
-    fig.add_trace(go.Box(y=results["mi_nwj"], name="MI_NWJ"))
-    fig.add_trace(go.Box(y=results["mi_ldr"], name="MI_LDR"))
+    fig.add_trace(go.Box(y=results["mi"], name="MI"))
 
     fig.update_layout(
         title="MI Estimates Comparison",

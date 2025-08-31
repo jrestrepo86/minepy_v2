@@ -47,7 +47,6 @@ class Model(nn.Module):
         input_dim: int,
         hidden_layers: list[int] = [64, 64, 32],
         afn="elu",
-        clip_val: float = 1e-6,
         loss_type: str = "mine",
         mine_alpha: float = 0.01,
         remine_reg_weight: float = 0.1,
@@ -67,19 +66,15 @@ class Model(nn.Module):
         seq += [nn.Linear(hidden_layers[-1], 1)]
         self.network = nn.Sequential(*seq)
 
-        self.clip_val = clip_val
         self.running_mean = 0
         self.loss_type = loss_type.lower()
         self.mine_alpha = mine_alpha
-        self.regWeight = remine_reg_weight
+        self.remine_reg_weight = remine_reg_weight
         self.remine_target_val = remine_target_val
 
     def forward(self, joint_samples, marginal_samples):
         w_joint = self.network(joint_samples).mean()
-        w_joint = torch.clamp(w_joint, min=self.clip_val, max=1 - self.clip_val)
-
         w_marg = self.network(marginal_samples)
-        w_marg = torch.clamp(w_marg, min=self.clip_val, max=1 - self.clip_val)
 
         if self.loss_type == "mine":
             second_term, self.running_mean = ema_loss(
@@ -91,16 +86,17 @@ class Model(nn.Module):
             second_term = torch.exp(w_marg - 1).mean()
             mi = w_joint - second_term
             loss = -mi
-        elif self.loss == "remine":
+        elif self.loss_type == "remine":
             second_term = torch.logsumexp(w_marg, 0) - math.log(w_marg.shape[0])
             mi = w_joint - second_term
-            loss = -mi + self.remine_target_val * torch.pow(
+            loss = -mi + self.remine_reg_weight * torch.pow(
                 second_term - self.remine_target_val, 2
             )
-        else:
-            # mine_biased as default
+        elif self.loss_type == "mine_biased":
             second_term = torch.logsumexp(w_marg, 0) - math.log(w_marg.shape[0])
             mi = w_joint - second_term
             loss = -mi
+        else:
+            raise ValueError("No method found. Methods: mine, mine_biased, nwj, remine")
 
         return mi, loss

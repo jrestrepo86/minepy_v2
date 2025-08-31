@@ -69,16 +69,14 @@ class ClassMI:
             log_gamma_joint = log_gamma[labels == 1]
             log_gamma_prod = log_gamma[labels == 0]
 
-            cmi_dv = (
+            mi_dv = (
                 log_gamma_joint.mean()
                 - torch.logsumexp(log_gamma_prod, dim=0)
                 + math.log(log_gamma_prod.shape[0])
             )
-            cmi_nwj = (
-                1 + log_gamma_joint.mean() - torch.exp(log_gamma_prod).mean()
-            )
-            cmi_ldr = log_gamma_joint.mean()
-        return cmi_dv, cmi_nwj, cmi_ldr
+            mi_nwj = 1 + log_gamma_joint.mean() - torch.exp(log_gamma_prod).mean()
+            mi_ldr = log_gamma_joint.mean()
+        return mi_dv, mi_nwj, mi_ldr
 
     def train(
         self,
@@ -119,9 +117,7 @@ class ClassMI:
         smooth = ExpMovingAverageSmooth()
 
         n = self.x.shape[0]
-        train_idx, test_idx = train_test_split(
-            list(range(n)), test_size=test_size
-        )
+        train_idx, test_idx = train_test_split(list(range(n)), test_size=test_size)
 
         training_sampler = Sampler(
             self.x[train_idx, :],
@@ -160,15 +156,15 @@ class ClassMI:
                 smoothed_loss = smooth(loss.item())
 
                 if self.log_metrics:
-                    dv_cmi, nwj_cmi, ldr_cmi = self._mi(w, labels)
+                    dv_mi, nwj_mi, ldr_mi = self._mi(w, labels)
                     metrics.append(
                         {
                             "epoch": epoch,
                             "loss": loss.item(),
                             "smoothed_loss": smoothed_loss,
-                            "dv": dv_cmi,
-                            "nwj": nwj_cmi,
-                            "ldr": ldr_cmi,
+                            "dv": dv_mi,
+                            "nwj": nwj_mi,
+                            "ldr": ldr_mi,
                         }
                     )
 
@@ -206,10 +202,10 @@ class ClassMI:
             # self.optimizer.eval()
             with torch.no_grad():
                 w, _ = self.model(samples, labels)
-                dv_cmi, nwj_cmi, ldr_cmi = self._mi(w, labels)
-                est_dv.append(dv_cmi.item())
-                est_nwj.append(nwj_cmi.item())
-                est_ldr.append(ldr_cmi.item())
+                dv_mi, nwj_mi, ldr_mi = self._mi(w, labels)
+                est_dv.append(dv_mi.item())
+                est_nwj.append(nwj_mi.item())
+                est_ldr.append(ldr_mi.item())
         est_dv = np.mean(est_dv)
         est_nwj = np.mean(est_nwj)
         est_ldr = np.mean(est_ldr)
@@ -219,9 +215,7 @@ class ClassMI:
         if self.metrics is None:
             raise ValueError("No metrics to plot. Did you call .train()?")
         if self.log_metrics is False:
-            print(
-                "No mi metrics recorded. Set log_metrics = True and call .train()?"
-            )
+            print("No mi metrics recorded. Set log_metrics = True and call .train()?")
 
         epochs = self.metrics["epoch"].values
         loss = self.metrics["loss"].values
@@ -260,7 +254,7 @@ class ClassMI:
             col=1,
         )
 
-        # --- Second row: CMI metrics ---
+        # --- Second row: MI metrics ---
         fig.add_trace(
             go.Scatter(x=epochs, y=dv, mode="lines+markers", name="DV"),
             row=2,
@@ -279,7 +273,7 @@ class ClassMI:
 
         # --- Update layout ---
         fig.update_layout(
-            title_text="Training Metrics" + " " + text,
+            title_text="Classification MI | Training Metrics" + " " + text,
             template="plotly_white",
         )
 
