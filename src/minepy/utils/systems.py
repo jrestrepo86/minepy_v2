@@ -22,3 +22,8 @@ class GaussianSamples:
 
     def mi(self) -> float:
         return -0.5 * np.log(1 - self.rho**2)
+
+    def h(self) -> float:
+        cov_matrix = np.array([[1, self.rho], [self.rho, 1]])
+        det_cov_mat = np.linalg.det(cov_matrix)
+        return np.log(2 * np.pi * np.exp(1)) + 0.5 * np.log(det_cov_mat)

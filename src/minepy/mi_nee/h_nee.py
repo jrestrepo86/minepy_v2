@@ -1,10 +1,4 @@
-"""
-MINE: Mutual information neural estimation
-
-"""
-
 import copy
-import math
 
 import numpy as np
 import pandas as pd
@@ -21,40 +15,44 @@ from minepy.utils.utils import (
 )
 
 from .batch_sampler import Sampler
-from .models import Model
+from .models import HneeModel
+from .ref_distributions import RefDistribution
 
 
-class Mine:
+class HNee:
     def __init__(
         self,
         X,
-        Y,
-        hidden_layers: list[int] = [64, 64],
-        afn: str = "relu",
-        loss_type: str = "mine",
-        mine_alpha: float = 0.01,
-        remine_reg_weight: float = 0.1,
-        remine_target_val: float = 0.0,
-        device: str | None = None,
+        hidden_layers=[150, 150, 150],
+        afn: str = "elu",
+        reference_distribution: str = "uniform",
+        ref_sample_mult: int = 2,
+        device=None,
     ):
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        super().__init__()
+        if device is None:
+            self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        else:
+            self.device = device
+        torch.device(self.device)
 
         self.x = to_col_vector(X)
-        self.y = to_col_vector(Y)
 
-        input_dim = self.x.shape[1] + self.y.shape[1]
+        input_dim = self.x.shape[1]
 
-        self.model = Model(
+        self.model = HneeModel(
             input_dim=input_dim,
             hidden_layers=hidden_layers,
             afn=afn,
-            loss_type=loss_type,
-            mine_alpha=mine_alpha,
-            remine_reg_weight=remine_reg_weight,
-            remine_target_val=remine_target_val,
         ).to(self.device)
 
-        self.loss_type = loss_type
+        # Reference distribution
+        self.ref_distribution = RefDistribution(
+            self.x,
+            ref_type=reference_distribution,
+            ref_sample_mult=ref_sample_mult,
+        )
+
         self.metrics = None
         self.trained = False
         self.log_metrics = False
@@ -101,39 +99,32 @@ class Mine:
         n = self.x.shape[0]
         train_idx, test_idx = train_test_split(list(range(n)), test_size=test_size)
 
-        training_sampler = Sampler(
-            self.x[train_idx, :],
-            self.y[train_idx, :],
-        )
-
-        testing_sampler = Sampler(
-            self.x[test_idx, :],
-            self.y[test_idx, :],
-        )
+        training_sampler = Sampler(self.x[train_idx, :])
+        testing_sampler = Sampler(self.x[test_idx, :])
 
         best_state, best_loss = None, float("inf")
         metrics = []
+
         for epoch in range(num_epochs):
             # training
-            joint_samples, marginal_samples = training_sampler.sample(batch_size)
-            joint_samples = joint_samples.to(self.device)
-            marginal_samples = marginal_samples.to(self.device)
+            samples = training_sampler.sample(batch_size).to(self.device)
+            ref_samples = self.ref_distribution.sample(batch_size).to(self.device)
             self.model.train()
             self.optimizer.train()
             with torch.set_grad_enabled(True):
                 self.optimizer.zero_grad()
-                _, loss = self.model(joint_samples, marginal_samples)
+                loss = self.model(samples, ref_samples)
                 loss.backward()
                 self.optimizer.step()
 
             # test
-            joint_samples, marginal_samples = testing_sampler.sample(batch_size)
-            joint_samples = joint_samples.to(self.device)
-            marginal_samples = marginal_samples.to(self.device)
+            samples = testing_sampler.sample(batch_size).to(self.device)
+            ref_samples = self.ref_distribution.sample(batch_size).to(self.device)
             self.model.eval()
             self.optimizer.eval()
             with torch.no_grad():
-                mi, loss = self.model(joint_samples, marginal_samples)
+                loss = self.model(samples, ref_samples)
+                entropy = loss.item() + self.ref_distribution.entropy().item()
                 # smooth
                 smoothed_loss = smooth(loss.item())
 
@@ -143,7 +134,7 @@ class Mine:
                             "epoch": epoch,
                             "loss": loss.item(),
                             "smoothed_loss": smoothed_loss,
-                            "mi": mi.item(),
+                            "h": entropy,
                         }
                     )
             # After each validation step:
@@ -163,22 +154,18 @@ class Mine:
         if log_metrics:
             self.metrics = pd.DataFrame(metrics)
 
-    def get_mi(self):
+    def get_h(self):
         if not self.trained:
             raise ValueError("Did you call .train()?")
 
-        sampler = Sampler(
-            self.x,
-            self.y,
-        )
-        joint_samples, marginal_samples = sampler.sample(self.x.shape[0])
-        joint_samples = joint_samples.to(self.device)
-        marginal_samples = marginal_samples.to(self.device)
+        sampler = Sampler(self.x)
+        samples = sampler.sample(self.x.shape[0]).to(self.device)
+        ref_samples = self.ref_distribution.sample(self.x.shape[0]).to(self.device)
         self.model.eval()
         self.optimizer.eval()
         with torch.no_grad():
-            mi, _ = self.model(joint_samples, marginal_samples)
-        return mi.item()
+            loss = self.model(samples, ref_samples)
+        return loss.item() + self.ref_distribution.entropy().item()
 
     def plot_metrics(self, text="", show=True):
         if self.metrics is None:
@@ -190,16 +177,16 @@ class Mine:
         loss = self.metrics["loss"].values
         smoothed_loss = self.metrics["smoothed_loss"].values
         if self.log_metrics:
-            mi = self.metrics["mi"].values
+            h = self.metrics["h"].values
         else:
-            mi = np.zeros(len(epochs))
+            h = np.zeros(len(epochs))
 
         # --- Create figure with 2 rows and 1 column ---
         fig = make_subplots(
             rows=2,
             cols=1,
             shared_xaxes=True,
-            subplot_titles=("Epochs vs Loss", "Epochs vs MI Estimate"),
+            subplot_titles=("Epochs vs Loss", "Epochs vs Entropy Estimate"),
         )
 
         # --- First row: Loss ---
@@ -221,16 +208,16 @@ class Mine:
 
         # --- Second row: MI metrics ---
         fig.add_trace(
-            go.Scatter(
-                x=epochs, y=mi, mode="lines+markers", name=f"{self.loss_type.upper()}"
-            ),
+            go.Scatter(x=epochs, y=h, mode="lines+markers", name="Hnee"),
             row=2,
             col=1,
         )
 
         # --- Update layout ---
         fig.update_layout(
-            title_text="MINE |Training Metrics" + " " + text,
+            title_text=f"Hnee | Training Metrics | Ref. Distribution {self.ref_distribution.ref_type}"
+            + " "
+            + text,
             template="plotly_white",
         )
 
