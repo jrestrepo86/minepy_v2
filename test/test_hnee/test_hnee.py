@@ -8,7 +8,7 @@ from minepy.utils.systems import GaussianSamples
 from minepy.utils.utils import to_col_vector
 
 RNG_SEED = 1
-NREA = 60  # number of realizations
+NREA = 20  # number of realizations
 DATA_LENGHT = int(1e4)
 RHO = 0.9
 
@@ -16,8 +16,10 @@ RHO = 0.9
 model_paramters = {
     "hidden_layers": [128, 128, 128],
     "afn": "elu",
+    # "reference_distribution": "gaussian",
+    # "reference_distribution": "uniform",
     "reference_distribution": "uniform_clip",
-    "ref_sample_mult": 2,
+    "ref_sample_mult": 4,
 }
 # Training
 training_parameters = {

@@ -10,7 +10,7 @@ class HneeModel(nn.Module):
     def __init__(
         self,
         input_dim: int,
-        hidden_layers: list[int] = [64, 64, 32],
+        hidden_layers: list[int] = [128, 128, 128],
         afn: str = "elu",
     ):
         super().__init__()
@@ -30,5 +30,5 @@ class HneeModel(nn.Module):
         mean_f = self.network(sample).mean()
         ref_f = self.network(ref_sample)
         log_mean_ref = torch.logsumexp(ref_f, 0) - math.log(ref_f.shape[0])
-        div = mean_f - log_mean_ref
-        return -div
+        loss = -(mean_f - log_mean_ref)
+        return loss

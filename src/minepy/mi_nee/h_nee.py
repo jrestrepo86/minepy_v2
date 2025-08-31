@@ -1,3 +1,10 @@
+"""
+Neural Entropic Estimation: A faster path to mutual information estimation
+
+ref: https://arxiv.org/abs/1905.12957
+
+"""
+
 import copy
 
 import numpy as np
@@ -23,7 +30,7 @@ class HNee:
     def __init__(
         self,
         X,
-        hidden_layers=[150, 150, 150],
+        hidden_layers=[128, 128, 128],
         afn: str = "elu",
         reference_distribution: str = "uniform",
         ref_sample_mult: int = 2,
@@ -124,7 +131,9 @@ class HNee:
             self.optimizer.eval()
             with torch.no_grad():
                 loss = self.model(samples, ref_samples)
-                entropy = loss.item() + self.ref_distribution.entropy().item()
+                cross_entropy = self.ref_distribution.cross_entropy(samples)
+                entropy = loss.item() + cross_entropy.item()  # H ≈ H(P,Q) - KL
+                # entropy = loss.item() + self.ref_distribution.entropy().item()
                 # smooth
                 smoothed_loss = smooth(loss.item())
 
@@ -165,7 +174,10 @@ class HNee:
         self.optimizer.eval()
         with torch.no_grad():
             loss = self.model(samples, ref_samples)
-        return loss.item() + self.ref_distribution.entropy().item()
+            cross_entropy = self.ref_distribution.cross_entropy(samples)
+
+        return loss.item() + cross_entropy.item()
+        # return loss.item() + self.ref_distribution.entropy().item()
 
     def plot_metrics(self, text="", show=True):
         if self.metrics is None:
