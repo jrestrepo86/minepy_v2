@@ -24,6 +24,7 @@ training_parameters = {
     "lr": 5e-3,
     "weight_decay": 5e-4,
     "test_size": 0.3,
+    "contiguous_split": True,
     "stop_patience": 100,
     "stop_min_delta": 1e-5,
 }

@@ -16,9 +16,8 @@ RHO = 0.9
 model_paramters = {
     "hidden_layers": [128, 128, 128],
     "afn": "elu",
-    # "reference_distribution": "gaussian",
+    "reference_distribution": "gaussian",
     # "reference_distribution": "uniform",
-    "reference_distribution": "uniform_clip",
     "ref_sample_mult": 4,
 }
 # Training
@@ -28,6 +27,7 @@ training_parameters = {
     "lr": 5e-3,
     "weight_decay": 5e-4,
     "test_size": 0.3,
+    "contiguous_split": True,
     "stop_patience": 100,
     "stop_min_delta": 1e-5,
 }

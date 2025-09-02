@@ -13,15 +13,15 @@ import plotly.graph_objects as go
 import schedulefree
 import torch
 from plotly.subplots import make_subplots
-from sklearn.model_selection import train_test_split
 
 from minepy.utils.utils import (
     EarlyStopping,
     ExpMovingAverageSmooth,
     to_col_vector,
+    train_test_split,
 )
 
-from .batch_sampler import Sampler
+from .batch_sampler import HneeSampler as Sampler
 from .models import HneeModel
 from .ref_distributions import RefDistribution
 
@@ -72,6 +72,7 @@ class HNee:
         lr: float = 1e-5,
         weight_decay: float = 5e-5,
         test_size: float = 0.3,
+        contiguous_split: bool = False,
         stop_patience: int = 100,
         stop_min_delta: float = 1e-4,
         stop_warmup_steps: int = 1000,
@@ -103,8 +104,9 @@ class HNee:
         # Exponential smooth
         smooth = ExpMovingAverageSmooth()
 
-        n = self.x.shape[0]
-        train_idx, test_idx = train_test_split(list(range(n)), test_size=test_size)
+        train_idx, test_idx = train_test_split(
+            self.x.shape[0], test_size, contigous=contiguous_split
+        )
 
         training_sampler = Sampler(self.x[train_idx, :])
         testing_sampler = Sampler(self.x[test_idx, :])

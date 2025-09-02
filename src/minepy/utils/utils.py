@@ -1,6 +1,7 @@
 import numpy as np
 import torch.nn as nn
 from numpy.lib.stride_tricks import as_strided
+from sklearn.model_selection import train_test_split as sk_train_test_split
 
 rng = np.random.default_rng()
 
@@ -96,3 +97,46 @@ class ExpMovingAverageSmooth:
         else:
             self.ema = self.alpha * loss + (1.0 - self.alpha) * self.ema
         return self.ema
+
+
+def train_test_split(
+    data_size: int,
+    test_size: float,
+    contigous: bool = False,
+    rng_seed: int | None = None,
+):
+    """
+    Split indices into train/test sets. Optionally enforce contiguous test block.
+
+    Parameters
+    ----------
+    data_size : int
+        Total number of samples.
+    test_size : float
+        Fraction of data to use for test (0 < test_size < 1).
+    contiguous : bool, default=False
+        If True, test set will be a contiguous block of indices.
+    rng_seed : int | None
+        Random seed for reproducibility.
+
+    Returns
+    -------
+    train_idx : np.ndarray
+        Indices for training.
+    test_idx : np.ndarray
+        Indices for testing.
+    """
+    rng = np.random.default_rng(rng_seed)
+
+    if contigous:
+        n_test = int(test_size * data_size)
+        max_start = data_size - n_test
+        test_start_idx = rng.integers(0, max_start + 1)  # scalar
+        test_end_idx = test_start_idx + n_test
+        test_idx = np.arange(test_start_idx, test_end_idx)
+        train_idx = np.setdiff1d(np.arange(data_size), test_idx)
+    else:
+        train_idx, test_idx = sk_train_test_split(
+            list(range(data_size)), test_size=test_size, shuffle=True
+        )
+    return train_idx, test_idx

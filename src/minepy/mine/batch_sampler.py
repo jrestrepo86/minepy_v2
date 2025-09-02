@@ -2,7 +2,7 @@ import numpy as np
 import torch
 
 
-class Sampler:
+class MineSampler:
     def __init__(
         self,
         X: np.ndarray,
